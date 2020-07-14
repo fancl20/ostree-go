@@ -1,4 +1,4 @@
-module fancl20/ostree-go
+module github.com/fancl20/ostree-go
 
 go 1.14
 
