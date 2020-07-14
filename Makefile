@@ -9,15 +9,14 @@ help:
 	@echo " - test: Run unittests"
 
 install-tools:
-	go get -u github.com/golang/dep/cmd/dep
 	go get -u github.com/golang/lint/golint
 
-deps:
-	dep ensure -v
+update:
+	go get -u ./... && go mod tidy
 
 lint:
 	golint .
 
 
 test:
-	go list ./... | grep -v vendor | xargs go test -v
+	go list ./... | xargs go test -v

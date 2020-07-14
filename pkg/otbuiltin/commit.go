@@ -8,7 +8,7 @@ import (
 	"time"
 	"unsafe"
 
-	glib "github.com/ostreedev/ostree-go/pkg/glibobject"
+	glib "github.com/fancl20/ostree-go/pkg/glibobject"
 )
 
 // #cgo pkg-config: ostree-1
@@ -121,6 +121,25 @@ func (repo *Repo) RegenerateSummary() error {
 		return generateError(cerr)
 	}
 	return nil
+}
+
+func (repo *Repo) ListRefs() (map[string]string, error) {
+	var cerr *C.GError = nil
+	var rawRefs unsafe.Pointer
+	if !glib.GoBool(glib.GBoolean(C.ostree_repo_list_refs(repo.native(), nil, (**C.GHashTable)((unsafe.Pointer)(&rawRefs)), nil, &cerr))) {
+		return nil, generateError(cerr)
+	}
+
+	refs := (*C.GHashTable)(rawRefs)
+	var hashIter C.GHashTableIter
+	var hashkey, hashvalue C.gpointer
+	refsMap := make(map[string]string)
+
+	C.g_hash_table_iter_init(&hashIter, refs)
+	for glib.GoBool(glib.GBoolean(C.g_hash_table_iter_next(&hashIter, &hashkey, &hashvalue))) {
+		refsMap[C.GoString((*C.char)(hashkey))] = C.GoString((*C.char)(hashvalue))
+	}
+	return refsMap, nil
 }
 
 // Commits a directory, specified by commitPath, to an ostree repo as a given branch

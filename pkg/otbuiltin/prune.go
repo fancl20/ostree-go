@@ -8,7 +8,7 @@ import (
 	"time"
 	"unsafe"
 
-	glib "github.com/ostreedev/ostree-go/pkg/glibobject"
+	glib "github.com/fancl20/ostree-go/pkg/glibobject"
 )
 
 // #cgo pkg-config: ostree-1
@@ -41,18 +41,9 @@ func NewPruneOptions() pruneOptions {
 
 // Search for unreachable objects in the repository given by repoPath.  Removes the
 // objects unless pruneOptions.NoPrune is specified
-func Prune(repoPath string, options pruneOptions) (string, error) {
+func (repo *Repo) Prune(options pruneOptions) (string, error) {
 	pruneOpts = options
-	// attempt to open the repository
-	repo, err := OpenRepo(repoPath)
-	if err != nil {
-		return "", err
-	}
 
-	var pruneFlags C.OstreeRepoPruneFlags
-	var numObjectsTotal int
-	var numObjectsPruned int
-	var objSizeTotal uint64
 	var gerr = glib.NewGError()
 	var cerr = (*C.GError)(gerr.Ptr())
 	defer C.free(unsafe.Pointer(cerr))
@@ -72,7 +63,7 @@ func Prune(repoPath string, options pruneOptions) (string, error) {
 			if glib.GoBool(glib.GBoolean(C.ostree_repo_prune_static_deltas(repo.native(), C.CString(pruneOpts.DeleteCommit), (*C.GCancellable)(cancellable.Ptr()), &cerr))) {
 				return "", generateError(cerr)
 			}
-		} else if err = deleteCommit(repo, pruneOpts.DeleteCommit, cancellable); err != nil {
+		} else if err := deleteCommit(repo, pruneOpts.DeleteCommit, cancellable); err != nil {
 			return "", err
 		}
 	}
@@ -82,11 +73,12 @@ func Prune(repoPath string, options pruneOptions) (string, error) {
 			return "", errors.New("Cannot specify both pruneOptions.KeepYoungerThan and pruneOptions.NoPrune")
 		}
 
-		if err = pruneCommitsKeepYoungerThanDate(repo, pruneOpts.KeepYoungerThan, cancellable); err != nil {
+		if err := pruneCommitsKeepYoungerThanDate(repo, pruneOpts.KeepYoungerThan, cancellable); err != nil {
 			return "", err
 		}
 	}
 
+	var pruneFlags C.OstreeRepoPruneFlags
 	if pruneOpts.RefsOnly {
 		pruneFlags |= C.OSTREE_REPO_PRUNE_FLAGS_REFS_ONLY
 	}
@@ -94,22 +86,29 @@ func Prune(repoPath string, options pruneOptions) (string, error) {
 		pruneFlags |= C.OSTREE_REPO_PRUNE_FLAGS_NO_PRUNE
 	}
 
-	formattedFreedSize := C.GoString((*C.char)(C.g_format_size_full((C.guint64)(objSizeTotal), 0)))
+	var numObjectsTotal C.gint
+	var numObjectsPruned C.gint
+	var objSizeTotal C.guint64
+	if !glib.GoBool(glib.GBoolean(C.ostree_repo_prune(repo.native(), pruneFlags, C.gint(pruneOpts.Depth), &numObjectsTotal, &numObjectsPruned, &objSizeTotal, (*C.GCancellable)(cancellable.Ptr()), &cerr))) {
+		return "", generateError(cerr)
+	}
+
+	formattedFreedSize := C.GoString((*C.char)(C.g_format_size_full(objSizeTotal, 0)))
 
 	var buffer bytes.Buffer
 
 	buffer.WriteString("Total objects: ")
-	buffer.WriteString(strconv.Itoa(numObjectsTotal))
+	buffer.WriteString(strconv.Itoa(int(numObjectsTotal)))
 	if numObjectsPruned == 0 {
 		buffer.WriteString("\nNo unreachable objects")
 	} else if pruneOpts.NoPrune {
 		buffer.WriteString("\nWould delete: ")
-		buffer.WriteString(strconv.Itoa(numObjectsPruned))
+		buffer.WriteString(strconv.Itoa(int(numObjectsPruned)))
 		buffer.WriteString(" objects, freeing ")
 		buffer.WriteString(formattedFreedSize)
 	} else {
 		buffer.WriteString("\nDeleted ")
-		buffer.WriteString(strconv.Itoa(numObjectsPruned))
+		buffer.WriteString(strconv.Itoa(int(numObjectsPruned)))
 		buffer.WriteString(" objects, ")
 		buffer.WriteString(formattedFreedSize)
 		buffer.WriteString(" freed")
@@ -127,7 +126,7 @@ func deleteCommit(repo *Repo, commitToDelete string, cancellable *glib.GCancella
 	var cerr = (*C.GError)(gerr.Ptr())
 	defer C.free(unsafe.Pointer(cerr))
 
-	if glib.GoBool(glib.GBoolean(C.ostree_repo_list_refs(repo.native(), nil, (**C.GHashTable)(refs.Ptr()), (*C.GCancellable)(cancellable.Ptr()), &cerr))) {
+	if !glib.GoBool(glib.GBoolean(C.ostree_repo_list_refs(repo.native(), nil, (**C.GHashTable)(refs.Ptr()), (*C.GCancellable)(cancellable.Ptr()), &cerr))) {
 		return generateError(cerr)
 	}
 

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"unsafe"
 
-	glib "github.com/ostreedev/ostree-go/pkg/glibobject"
+	glib "github.com/fancl20/ostree-go/pkg/glibobject"
 )
 
 // #cgo pkg-config: ostree-1
