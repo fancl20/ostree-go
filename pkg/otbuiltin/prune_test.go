@@ -80,8 +80,6 @@ func TestPruneNoPrunePass(t *testing.T) {
 	ret, err = repo.Prune(pruneOpts)
 	if err != nil {
 		t.Errorf("%s", err)
-	} else {
-		fmt.Println(ret)
 	}
 }
 
@@ -166,7 +164,6 @@ func TestPruneRefsOnlyPass(t *testing.T) {
 	pruneOpts := NewPruneOptions()
 	pruneOpts.RefsOnly = true
 	ret, err = repo.Prune(pruneOpts)
-	fmt.Println(ret)
 	if err != nil {
 		t.Errorf("%s", err)
 	} else if strings.Contains(ret, "Would delete") {

@@ -125,12 +125,11 @@ func (repo *Repo) RegenerateSummary() error {
 
 func (repo *Repo) ListRefs() (map[string]string, error) {
 	var cerr *C.GError = nil
-	var rawRefs unsafe.Pointer
-	if !glib.GoBool(glib.GBoolean(C.ostree_repo_list_refs(repo.native(), nil, (**C.GHashTable)((unsafe.Pointer)(&rawRefs)), nil, &cerr))) {
+	var refs *C.GHashTable = nil
+	if !glib.GoBool(glib.GBoolean(C.ostree_repo_list_refs(repo.native(), nil, &refs, nil, &cerr))) {
 		return nil, generateError(cerr)
 	}
 
-	refs := (*C.GHashTable)(rawRefs)
 	var hashIter C.GHashTableIter
 	var hashkey, hashvalue C.gpointer
 	refsMap := make(map[string]string)
